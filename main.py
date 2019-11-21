@@ -4,7 +4,13 @@ import os
 import sys
 import pygame
 import random
+import argparse
+import multiprocessing
+import _thread as thread
 from pygame import *
+from pygame.locals import *
+
+event = multiprocessing.Event()
 
 pygame.mixer.pre_init(44100, -16, 2, 2048) # fix audio delay 
 pygame.init()
@@ -23,9 +29,38 @@ screen = pygame.display.set_mode(scr_size)
 clock = pygame.time.Clock()
 pygame.display.set_caption("T-Rex Rush")
 
+from pythonosc import dispatcher as dsp
+from pythonosc import osc_server
+from pythonosc import udp_client
+
 jump_sound = pygame.mixer.Sound('sprites/jump.wav')
 die_sound = pygame.mixer.Sound('sprites/die.wav')
 checkPoint_sound = pygame.mixer.Sound('sprites/checkPoint.wav')
+
+def send_space_event():
+    newevent = pygame.event.Event(pygame.locals.KEYDOWN, key=K_SPACE, mod=pygame.locals.KMOD_NONE) #create the event
+    pygame.event.post(newevent) #add the event to the queue
+
+def blink_handler(unused_addr, args, blink):
+    if blink:
+        print("blink")
+        event.set()
+
+def jaw_clench_handler(unused_addr, args, clench):
+    if clench:
+        print("jaw_clench")
+        event.set()
+
+def start_osc(ip, port):
+    print('start')
+    dispatcher = dsp.Dispatcher()
+    dispatcher.map("/muse/elements/blink", blink_handler, "EEG")
+    #dispatcher.map("/muse/elements/jaw_clench", jaw_clench_handler, "EEG")
+
+    server = osc_server.ThreadingOSCUDPServer(
+        (ip, port), dispatcher)
+    print("Serving on {}".format(server.server_address))
+    server.serve_forever()
 
 def load_image(
     name,
@@ -502,9 +537,32 @@ def gameplay():
     pygame.quit()
     quit()
 
-def main():
+def loop():
+    while True:
+        event.wait()
+        newevent = pygame.event.Event(pygame.locals.KEYDOWN, key=K_SPACE, mod=pygame.locals.KMOD_NONE) #create the event
+        pygame.event.post(newevent) #add the event to the queue
+        event.clear()
+
+def game():
+    thread.start_new_thread(loop, ())
     isGameQuit = introscreen()
     if not isGameQuit:
         gameplay()
 
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--ip",
+                        default="127.0.0.1",
+                        help="The ip to listen on")
+    parser.add_argument("--port",
+                        type=int,
+                        default=5000,
+                        help="The port to listen on")
+    args = parser.parse_args()
+    
+    t1 = multiprocessing.Process(target=start_osc, args=(args.ip, args.port))    
+    t1.start()
+    game()
+    
 main()
