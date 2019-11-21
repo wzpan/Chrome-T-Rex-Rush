@@ -440,6 +440,7 @@ def gameplay():
             for c in cacti:
                 c.movement[0] = -1*gamespeed
                 if pygame.sprite.collide_mask(playerDino,c):
+                    continue  # 不死
                     playerDino.isDead = True
                     if pygame.mixer.get_init() != None:
                         die_sound.play()
@@ -447,6 +448,7 @@ def gameplay():
             for p in pteras:
                 p.movement[0] = -1*gamespeed
                 if pygame.sprite.collide_mask(playerDino,p):
+                    continue  # 不死
                     playerDino.isDead = True
                     if pygame.mixer.get_init() != None:
                         die_sound.play()
